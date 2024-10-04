@@ -9,6 +9,7 @@ LEFT_PIN = 27
 RIGHT_PIN = 17
 JUMP_THRESHOLD = 0.2  # Time required for both feet to be in the air for it to be recognized as a jump
 MAX_SECONDS_BETWEEN_STEPS = 0.75
+MIN_SPEED = 0.5
 STEPS_PER_SECOND_TO_RUN_FULL_SPEED = 3.0
 SERVER_URL = "ws://192.168.1.134:1337/crocs"
 TIME_BETWEEN_UPDATES = 0.1
@@ -59,7 +60,7 @@ def input_process():
         on_step()
 
     if now - last_step_time <= MAX_SECONDS_BETWEEN_STEPS:
-        speed = min(current_steps_per_second / STEPS_PER_SECOND_TO_RUN_FULL_SPEED, 1.0)
+        speed = max(min(current_steps_per_second / STEPS_PER_SECOND_TO_RUN_FULL_SPEED, 1.0), MIN_SPEED)
 
     last_left = left_on_floor
     last_right = right_on_floor
