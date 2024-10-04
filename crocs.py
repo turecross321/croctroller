@@ -25,7 +25,7 @@ try:
         right = GPIO.input(left_pin) == GPIO.LOW
         left = GPIO.input(right_pin) == GPIO.LOW
 
-        if left and right:
+        if not left and not right:
             print("JUMP!")
 
         if left_last and not left:  # just left floor
