@@ -12,7 +12,7 @@ JUMP_THRESHOLD = 0.2  # Time required for both feet to be in the air for it to b
 MAX_SECONDS_BETWEEN_STEPS = 0.75
 STEPS_PER_SECOND_TO_RUN_FULL_SPEED = 3.0
 SERVER_URL = "ws://192.168.1.134:1337/crocs"
-KEEP_ALIVE_INTERVAL = 10.0  # Keep-alive interval in seconds
+TIME_BETWEEN_UPDATES = 0.1
 
 # Set up the GPIO using BCM numbering
 GPIO.setmode(GPIO.BCM)
@@ -26,8 +26,6 @@ last_step_time = time.time()
 last_start_jump_time = time.time()
 current_steps_per_second = 0.0
 steps = 0
-
-ws: Optional[websocket.WebSocket] = None
 
 
 def on_step():
@@ -71,16 +69,6 @@ def input_process():
     return speed, jump
 
 
-def send_ping():
-    while True:
-        time.sleep(KEEP_ALIVE_INTERVAL)
-        if ws:
-            try:
-                ws.ping()
-            except Exception as e:
-                print(f"Failed to send ping: {e}")
-
-
 def websocket_connect():
     global ws
     try:
@@ -92,27 +80,18 @@ def websocket_connect():
         ws = None
 
 
-def run():
-    global ws
-    while True:
-        if ws is None or not ws.connected:
-            websocket_connect()
+def on_open(ws):
+    print("Connection opened")
 
-        try:
+    def send_input():
+        while True:
             move_speed, is_jumping = input_process()
             message = {"speed": move_speed, "jump": is_jumping}
             ws.send(json.dumps(message))
-        except (websocket.WebSocketConnectionClosedException, ConnectionResetError) as e:
-            print(f"Connection error: {e}")
-            ws = None
-        except Exception as e:
-            print(f"Error: {e}")
-        time.sleep(0.1)
+            time.sleep(TIME_BETWEEN_UPDATES)
+
+    threading.Thread(target=send_input()).start()
 
 
-if __name__ == "__main__":
-    try:
-        threading.Thread(target=send_ping, daemon=True).start()
-        run()
-    except KeyboardInterrupt:
-        GPIO.cleanup()
+ws = websocket.WebSocketApp(url=SERVER_URL, on_open=on_open)
+ws.run_forever()
