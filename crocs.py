@@ -1,8 +1,10 @@
 import json
+from typing import Optional
 
 import RPi.GPIO as GPIO
 import time
 import websocket
+import threading
 
 LEFT_PIN = 27
 RIGHT_PIN = 17
@@ -10,38 +12,30 @@ JUMP_THRESHOLD = 0.2  # Time required for both feet to be in the air for it to b
 MAX_SECONDS_BETWEEN_STEPS = 0.75
 STEPS_PER_SECOND_TO_RUN_FULL_SPEED = 3.0
 SERVER_URL = "ws://192.168.1.134:1337/crocs"
-KEEP_ALIVE_INTERVAL = 10.0
+KEEP_ALIVE_INTERVAL = 10.0  # Keep-alive interval in seconds
 
 # Set up the GPIO using BCM numbering
 GPIO.setmode(GPIO.BCM)
-
-# Set the pin as input with an internal pull-up resistor
 GPIO.setup(LEFT_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 GPIO.setup(RIGHT_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
 last_left = False
 last_right = False
 last_neither_on_floor = False
-
 last_step_time = time.time()
 last_start_jump_time = time.time()
-
 current_steps_per_second = 0.0
-
 steps = 0
+
+ws: Optional[websocket.WebSocket] = None
 
 
 def on_step():
     time_now = time.time()
-
     global steps, last_step_time, current_steps_per_second
-
-    steps = steps + 1
-
+    steps += 1
     current_steps_per_second = 1 / (time_now - last_step_time)
-
     last_step_time = time_now
-
     print("Steps:", str(steps))
 
 
@@ -62,15 +56,10 @@ def input_process():
     if neither_on_floor and now - last_start_jump_time > JUMP_THRESHOLD:
         jump = True
 
-    if last_left and not left_on_floor:  # just left floor
+    if last_left and not left_on_floor:
         on_step()
-    elif left_on_floor and not last_left:  # just touched floor
-        pass
-
-    if last_right and not right_on_floor:  # just left floor
+    if last_right and not right_on_floor:
         on_step()
-    elif right_on_floor and not last_right:  # just touched floor
-        pass
 
     if now - last_step_time <= MAX_SECONDS_BETWEEN_STEPS:
         speed = min(current_steps_per_second / STEPS_PER_SECOND_TO_RUN_FULL_SPEED, 1.0)
@@ -82,17 +71,48 @@ def input_process():
     return speed, jump
 
 
-try:
-    last_ping_time = time.time()
-    ws = websocket.WebSocket()
-    ws.connect(SERVER_URL)
-
+def send_ping():
     while True:
-        move_speed, is_jumping = input_process()
-        message = {"speed": move_speed, "jump": is_jumping}
-        ws.send(json.dumps(message))
+        time.sleep(KEEP_ALIVE_INTERVAL)
+        if ws:
+            try:
+                ws.ping()
+            except Exception as e:
+                print(f"Failed to send ping: {e}")
 
+
+def websocket_connect():
+    global ws
+    try:
+        ws = websocket.WebSocket()
+        ws.connect(SERVER_URL)
+        print("WebSocket connected")
+    except Exception as e:
+        print(f"Failed to connect to WebSocket: {e}")
+        ws = None
+
+
+def run():
+    global ws
+    while True:
+        if ws is None or not ws.connected:
+            websocket_connect()
+
+        try:
+            move_speed, is_jumping = input_process()
+            message = {"speed": move_speed, "jump": is_jumping}
+            ws.send(json.dumps(message))
+        except (websocket.WebSocketConnectionClosedException, ConnectionResetError) as e:
+            print(f"Connection error: {e}")
+            ws = None
+        except Exception as e:
+            print(f"Error: {e}")
         time.sleep(0.1)
 
-except KeyboardInterrupt:
-    GPIO.cleanup()
+
+if __name__ == "__main__":
+    try:
+        threading.Thread(target=send_ping, daemon=True).start()
+        run()
+    except KeyboardInterrupt:
+        GPIO.cleanup()
