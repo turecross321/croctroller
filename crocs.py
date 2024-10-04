@@ -3,8 +3,7 @@ from typing import Optional
 
 import RPi.GPIO as GPIO
 import time
-import websocket
-import threading
+from websocket import create_connection
 
 LEFT_PIN = 27
 RIGHT_PIN = 17
@@ -69,29 +68,13 @@ def input_process():
     return speed, jump
 
 
-def websocket_connect():
-    global ws
-    try:
-        ws = websocket.WebSocket()
-        ws.connect(SERVER_URL)
-        print("WebSocket connected")
-    except Exception as e:
-        print(f"Failed to connect to WebSocket: {e}")
-        ws = None
+ws = create_connection(SERVER_URL)
+print("Connected")
 
+while True:
+    move_speed, is_jumping = input_process()
+    message = {"speed": move_speed, "jump": is_jumping}
+    ws.send(json.dumps(message))
 
-def on_open(ws):
-    print("Connection opened")
+    time.sleep(TIME_BETWEEN_UPDATES)
 
-    def send_input():
-        while True:
-            move_speed, is_jumping = input_process()
-            message = {"speed": move_speed, "jump": is_jumping}
-            ws.send(json.dumps(message))
-            time.sleep(TIME_BETWEEN_UPDATES)
-
-    threading.Thread(target=send_input()).start()
-
-
-ws = websocket.WebSocketApp(url=SERVER_URL, on_open=on_open)
-ws.run_forever()
