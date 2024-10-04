@@ -1,11 +1,15 @@
+import json
+
 import RPi.GPIO as GPIO
 import time
+import websocket
 
 LEFT_PIN = 27
 RIGHT_PIN = 17
 JUMP_THRESHOLD = 0.2  # Time required for both feet to be in the air for it to be recognized as a jump
 MAX_SECONDS_BETWEEN_STEPS = 0.75
 STEPS_PER_SECOND_TO_RUN_FULL_SPEED = 3.0
+SERVER_URL = "ws://192.168.1.134:1337/crocs"
 
 # Set up the GPIO using BCM numbering
 GPIO.setmode(GPIO.BCM)
@@ -40,7 +44,7 @@ def on_step():
     print("Steps:", str(steps))
 
 
-def process():
+def input_process():
     global last_left, last_right, last_neither_on_floor, last_step_time, last_start_jump_time
 
     right_on_floor = GPIO.input(LEFT_PIN) == GPIO.LOW
@@ -70,17 +74,22 @@ def process():
     if now - last_step_time <= MAX_SECONDS_BETWEEN_STEPS:
         speed = min(current_steps_per_second / STEPS_PER_SECOND_TO_RUN_FULL_SPEED, 1.0)
 
-    print("Speed:", speed)
-    print("Jump:", jump)
-
     last_left = left_on_floor
     last_right = right_on_floor
     last_neither_on_floor = neither_on_floor
 
+    return speed, jump
+
 
 try:
+    ws = websocket.WebSocket()
+    ws.connect(SERVER_URL)
+
     while True:
-        process()
+        speed, jump = input_process()
+        message = {"speed": speed, "jump": jump}
+        ws.send(json.dumps(message))
+
         time.sleep(0.1)
 
 except KeyboardInterrupt:
