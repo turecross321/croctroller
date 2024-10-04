@@ -4,8 +4,8 @@ import time
 LEFT_PIN = 27
 RIGHT_PIN = 17
 JUMP_THRESHOLD = 0.2  # Time required for both feet to be in the air for it to be recognized as a jump
-MAX_SECONDS_BETWEEN_STEPS = 1.0
-STEPS_PER_SECOND_TO_RUN_FULL_SPEED = 2.0
+MAX_SECONDS_BETWEEN_STEPS = 0.75
+STEPS_PER_SECOND_TO_RUN_FULL_SPEED = 3.0
 
 # Set up the GPIO using BCM numbering
 GPIO.setmode(GPIO.BCM)
