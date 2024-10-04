@@ -10,6 +10,7 @@ JUMP_THRESHOLD = 0.2  # Time required for both feet to be in the air for it to b
 MAX_SECONDS_BETWEEN_STEPS = 0.75
 STEPS_PER_SECOND_TO_RUN_FULL_SPEED = 3.0
 SERVER_URL = "ws://192.168.1.134:1337/crocs"
+KEEP_ALIVE_INTERVAL = 10.0
 
 # Set up the GPIO using BCM numbering
 GPIO.setmode(GPIO.BCM)
@@ -62,14 +63,14 @@ def input_process():
         jump = True
 
     if last_left and not left_on_floor:  # just left floor
-        pass
-    elif left_on_floor and not last_left:  # just touched floor
         on_step()
+    elif left_on_floor and not last_left:  # just touched floor
+        pass
 
     if last_right and not right_on_floor:  # just left floor
-        pass
-    elif right_on_floor and not last_right:  # just touched floor
         on_step()
+    elif right_on_floor and not last_right:  # just touched floor
+        pass
 
     if now - last_step_time <= MAX_SECONDS_BETWEEN_STEPS:
         speed = min(current_steps_per_second / STEPS_PER_SECOND_TO_RUN_FULL_SPEED, 1.0)
@@ -82,12 +83,13 @@ def input_process():
 
 
 try:
+    last_ping_time = time.time()
     ws = websocket.WebSocket()
     ws.connect(SERVER_URL)
 
     while True:
-        speed, jump = input_process()
-        message = {"speed": speed, "jump": jump}
+        move_speed, is_jumping = input_process()
+        message = {"speed": move_speed, "jump": is_jumping}
         ws.send(json.dumps(message))
 
         time.sleep(0.1)

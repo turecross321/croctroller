@@ -22,7 +22,7 @@ def to_axis_value(float_value):
 def update_controller():
     global joystick, move_direction, move_speed, jump
     joystick.set_axis(pyvjoy.HID_USAGE_X, to_axis_value(move_speed * move_direction))  # move
-    joystick.set_button(1, jump)  # jump
+    joystick.set_button(3, jump)  # jump
     # todo: grab
     # todo: layer change
     # todo: menu navigation stuff
@@ -37,15 +37,17 @@ async def controller_loop():
 async def handle_client(websocket, path):
     async for message in websocket:
         parsed = json.loads(message)
+        print(parsed)
+        print(path)
 
-        if path == "crocs":
+        if path == "/crocs":
             global move_speed, jump
             move_speed = parsed["speed"]
             jump = parsed["jump"]
 
 
 async def main():
-    async with websockets.serve(handle_client, LISTEN_IP, PORT):
+    async with websockets.serve(handle_client, LISTEN_IP, PORT, ping_interval=20, ping_timeout=40):
         print("WebSocket server started on", "ws://" + LISTEN_IP + ":" + str(PORT))
         # Start the controller loop in the background
         await asyncio.create_task(controller_loop())
