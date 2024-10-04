@@ -47,7 +47,7 @@ async def handle_client(websocket, path):
 
 
 async def main():
-    async with websockets.serve(handle_client, LISTEN_IP, PORT, ping_interval=20, ping_timeout=40):
+    async with websockets.serve(handle_client, LISTEN_IP, PORT, ping_interval=None):
         print("WebSocket server started on", "ws://" + LISTEN_IP + ":" + str(PORT))
         # Start the controller loop in the background
         await asyncio.create_task(controller_loop())
