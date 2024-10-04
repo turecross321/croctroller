@@ -24,6 +24,9 @@ try:
         elif left and not left_last:  # just touched floor
             print("left DOWN!")
 
+        left_last = left
+        right_last = right
+
         time.sleep(0.1)
 
 except KeyboardInterrupt:
